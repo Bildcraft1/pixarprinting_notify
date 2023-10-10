@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 import asyncio
 import logging
+import os
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.common import NoSuchElementException
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from telethon import TelegramClient, Button
-from selenium.webdriver.chrome.options import Options
-
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -210,28 +210,39 @@ async def monitor_discounted_items(client, message_id, original_items):
         await asyncio.sleep(300)
 
 
+async def check_website(client, loop):
+    pixar_hour_status = await loop.run_in_executor(None, check_pixar_hour)
+
+    if pixar_hour_status:
+        logger.log(logging.INFO, "Pixar Hour started")
+        original_items = get_discounted_items()
+        last_id = await send_message(client, original_items)
+        await monitor_discounted_items(client, last_id, original_items)
+    else:
+        logger.log(logging.INFO, "Pixar Hour not started yet")
+
+
 async def main() -> None:
     global last_id
 
     client = TelegramClient('bot', api_id, api_hash)
     await client.start(bot_token=bot_token)
+
+    scheduler = AsyncIOScheduler()
+    loop = asyncio.get_running_loop()
+    scheduler.add_job(check_website, 'cron', minute=0, args=[client, loop])  # At the top of every hour
+    scheduler.add_job(check_website, 'cron', minute=1, args=[client, loop])  # 1 minute after the hour
+    scheduler.add_job(check_website, 'cron', minute=2, args=[client, loop])  # 2 minutes after the hour
+    scheduler.add_job(check_website, 'cron', minute=3, args=[client, loop])  # 3 minutes after the hour
+    scheduler.add_job(check_website, 'cron', minute=5, args=[client, loop])  # 5 minutes after the hour
+
     try:
-        while True:  # This creates an infinite loop
-            loop = asyncio.get_event_loop()
-            pixar_hour_status = await loop.run_in_executor(None, check_pixar_hour)
-
-            if pixar_hour_status:
-                logger.log(logging.INFO, "Pixar Hour started")
-                original_items = get_discounted_items()
-                last_id = await send_message(client, original_items)
-                await monitor_discounted_items(client, last_id, original_items)
-            else:
-                logger.log(logging.INFO, "Pixar Hour not started yet")
-
-            # Wait for 1 hour before checking again
-            await asyncio.sleep(20)
+        scheduler.start()
+        while True:
+            await asyncio.sleep(3600)  # Keep the script running
     finally:
         await client.disconnect()
+        scheduler.shutdown()
 
 if __name__ == '__main__':
     print("Starting...")

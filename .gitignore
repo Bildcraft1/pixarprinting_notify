@@ -2,3 +2,4 @@ venv/
 anon.session
 .idea/
 .env
+bot.session
