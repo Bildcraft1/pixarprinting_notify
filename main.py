@@ -6,6 +6,7 @@ from selenium import webdriver
 from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
 from telethon import TelegramClient, Button
+from selenium.webdriver.chrome.options import Options
 
 import os
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ load_dotenv()
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 bot_token = os.getenv("BOT_TOKEN")
+
 
 # Enable logging
 logging.basicConfig(
@@ -36,7 +38,10 @@ pixart_deal_sold_out_css_selector = ".sold_out_label"
 
 
 def check_pixar_hour() -> bool:
-    driver = webdriver.Firefox()
+    options = Options()
+    options.headless = True
+    options.add_argument("--disable-gpu")  # Optional, if applicable to your environment
+    driver = webdriver.Chrome(options=options)
     try:
         # Navigate to the page
         driver.get("https://www.pixartprinting.it/happy-hour")
@@ -58,9 +63,12 @@ def check_pixar_hour() -> bool:
 
 
 def get_discounted_items() -> list:
-    driver = webdriver.Firefox()
+    options = Options()
+    options.headless = True
+    options.add_argument("--disable-gpu")  # Optional, if applicable to your environment
+    driver = webdriver.Chrome(options=options)
     try:
-        driver.get("https://www.pixartprinting.it/happy-hour/")
+        driver.get("https://www.pixartprinting.it/birthday/")
 
         # Extract deal elements
         deals = driver.find_elements(By.CSS_SELECTOR, pixart_hhpage_deals_css_selector)
@@ -197,11 +205,11 @@ async def monitor_discounted_items(client, message_id, original_items):
 
 
 async def main() -> None:
-    global last_id  # Add this line
-    async with TelegramClient('anon', api_id, api_hash) as client:
-        # Bot login
-        await client.start(bot_token=bot_token)
+    global last_id
 
+    client = TelegramClient('bot', api_id, api_hash)
+    await client.start(bot_token=bot_token)
+    try:
         while True:  # This creates an infinite loop
             loop = asyncio.get_event_loop()
             pixar_hour_status = await loop.run_in_executor(None, check_pixar_hour)
@@ -216,7 +224,10 @@ async def main() -> None:
 
             # Wait for 1 hour before checking again
             await asyncio.sleep(20)
-
+    finally:
+        await client.disconnect()
 
 if __name__ == '__main__':
+    print("Starting...")
+    print("Bot token: " + bot_token)
     asyncio.run(main())
