@@ -16,5 +16,5 @@ content of the Happy Hour on Pixar Pritning (Check the repo link for an example)
 
 ## Credits
 
-[Pixarto]("https://github.com/MrTriad/pixarto") for the CSS classes
+[Pixarto](https://github.com/MrTriad/pixarto) for the CSS classes
 
