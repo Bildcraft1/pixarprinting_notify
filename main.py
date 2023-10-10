@@ -40,6 +40,7 @@ pixart_deal_sold_out_css_selector = ".sold_out_label"
 def check_pixar_hour() -> bool:
     options = Options()
     options.headless = True
+    options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--remote-debugging-port=9222")  # this is optional
@@ -67,12 +68,13 @@ def check_pixar_hour() -> bool:
 def get_discounted_items() -> list:
     options = Options()
     options.headless = True
+    options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--remote-debugging-port=9222")  # this is optional
     driver = webdriver.Chrome(options=options)
     try:
-        driver.get("https://www.pixartprinting.it/birthday/")
+        driver.get("https://www.pixartprinting.it/happy-hour/")
 
         # Extract deal elements
         deals = driver.find_elements(By.CSS_SELECTOR, pixart_hhpage_deals_css_selector)
