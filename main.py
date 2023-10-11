@@ -14,9 +14,11 @@ from telethon import TelegramClient, Button
 load_dotenv()
 
 # Define your Telegram API credentials
-api_id = int(os.getenv("API_ID"))
-api_hash = os.getenv("API_HASH")
-bot_token = os.getenv("BOT_TOKEN")
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
+DEVELOPER_CHAT_ID = int(os.getenv("DEVELOPER_CHAT_ID"))
 
 
 # Enable logging
@@ -31,7 +33,7 @@ logger = logging.getLogger(__name__)
 last_id = None
 
 # Define CSS selectors
-pixart_hhpage_deals_css_selector = "div.col-6.col-sm-3.gallery_item.promo_hour_btn"
+PIXART_HHPAGE_DEALS_CSS_SELECTOR = "div.col-6.col-sm-3.gallery_item.promo_hour_btn"
 pixart_deal_name_css_selector = ".gallery_item_name"
 pixart_deal_price_css_selector = ".gallery_discount"
 pixart_deal_sold_out_css_selector = ".sold_out_label"
@@ -77,7 +79,7 @@ def get_discounted_items() -> list:
         driver.get("https://www.pixartprinting.it/happy-hour/")
 
         # Extract deal elements
-        deals = driver.find_elements(By.CSS_SELECTOR, pixart_hhpage_deals_css_selector)
+        deals = driver.find_elements(By.CSS_SELECTOR, PIXART_HHPAGE_DEALS_CSS_SELECTOR)
         parsed_deals = []
 
         for deal in deals:
@@ -126,8 +128,8 @@ async def send_message(client, discounted_items) -> int:
         for deal in valid_discounted_items
     ]
 
-    await client.send_message('@pixarprintingnotify', "**TESTING MODE**")
-    message = await client.send_message('@pixarprintingnotify', message_text, buttons=buttons)
+    await client.send_message(f'{CHANNEL_USERNAME}', "**TESTING MODE**")
+    message = await client.send_message(f'{CHANNEL_USERNAME}', message_text, buttons=buttons)
     return message.id  # Return the message ID
 
 
@@ -135,7 +137,7 @@ async def update_message(client, message_id: int, sold_out_item: str) -> None:
     logger.log(logging.INFO, f"Updating message {message_id} to mark {sold_out_item} as sold out")
     try:
         # Get the current message
-        message = await client.get_messages('@pixarprintingnotify', ids=message_id)
+        message = await client.get_messages(f'{CHANNEL_USERNAME}', ids=message_id)
         current_buttons = message.reply_markup.rows if message.reply_markup else []
 
         # Initialize an empty list to keep track of the sold-out offers
@@ -170,7 +172,7 @@ async def update_message(client, message_id: int, sold_out_item: str) -> None:
         )
 
         # Edit the message with the updated information
-        await client.edit_message('@pixarprintingnotify', message_id, text=updated_message_text,
+        await client.edit_message(f'{CHANNEL_USERNAME}', message_id, text=updated_message_text,
                                   buttons=updated_buttons)
     except Exception as e:
         logger.log(logging.ERROR, f"Error updating message: {e}")
@@ -218,15 +220,19 @@ async def check_website(client, loop):
         original_items = get_discounted_items()
         last_id = await send_message(client, original_items)
         await monitor_discounted_items(client, last_id, original_items)
+        # Notify developer that Pixar Hour has started
+        await client.send_message(DEVELOPER_CHAT_ID, "Pixar Hour has started.")
     else:
         logger.log(logging.INFO, "Pixar Hour not started yet")
+        # Notify developer that no Pixar Hour was found
+        await client.send_message(DEVELOPER_CHAT_ID, "No Pixar Hour found.")
 
 
 async def main() -> None:
     global last_id
 
-    client = TelegramClient('bot', api_id, api_hash)
-    await client.start(bot_token=bot_token)
+    client = TelegramClient('bot', API_ID, API_HASH)
+    await client.start(bot_token=BOT_TOKEN)
 
     scheduler = AsyncIOScheduler()
     loop = asyncio.get_running_loop()
@@ -245,6 +251,5 @@ async def main() -> None:
         scheduler.shutdown()
 
 if __name__ == '__main__':
-    print("Starting...")
-    print("Bot token: " + bot_token)
+    logger.log(logging.INFO, "Starting the bot")
     asyncio.run(main())
