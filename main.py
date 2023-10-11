@@ -20,7 +20,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
 DEVELOPER_CHAT_ID = int(os.getenv("DEVELOPER_CHAT_ID"))
 
-
 # Enable logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -31,6 +30,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 last_id = None
+attempts = 0
 
 # Define CSS selectors
 PIXART_HHPAGE_DEALS_CSS_SELECTOR = "div.col-6.col-sm-3.gallery_item.promo_hour_btn"
@@ -213,8 +213,9 @@ async def monitor_discounted_items(client, message_id, original_items):
 
 
 async def check_website(client, loop):
-    pixar_hour_status = await loop.run_in_executor(None, check_pixar_hour)
+    global attempts, last_id  # Add a global attempts variable to track the number of attempts
 
+    pixar_hour_status = await loop.run_in_executor(None, check_pixar_hour)
     if pixar_hour_status:
         logger.log(logging.INFO, "Pixar Hour started")
         original_items = get_discounted_items()
@@ -222,14 +223,19 @@ async def check_website(client, loop):
         await monitor_discounted_items(client, last_id, original_items)
         # Notify developer that Pixar Hour has started
         await client.send_message(DEVELOPER_CHAT_ID, "Pixar Hour has started.")
+        attempts = 0  # Reset the attempts counter when the Pixar Hour is found
     else:
         logger.log(logging.INFO, "Pixar Hour not started yet")
-        # Notify developer that no Pixar Hour was found
-        await client.send_message(DEVELOPER_CHAT_ID, "No Pixar Hour found.")
+        attempts += 1  # Increment the attempts counter
+        # Notify developer after 5 attempts
+        if attempts >= 5:
+            await client.send_message(DEVELOPER_CHAT_ID, "No Pixar Hour found after 5 attempts.")
+            attempts = 0  # Reset the attempts counter
 
 
 async def main() -> None:
-    global last_id
+    global last_id, attempts  # Declare the attempts variable as global
+    attempts = 0  # Initialize the attempts counter
 
     client = TelegramClient('bot', API_ID, API_HASH)
     await client.start(bot_token=BOT_TOKEN)
@@ -250,6 +256,8 @@ async def main() -> None:
         await client.disconnect()
         scheduler.shutdown()
 
+
 if __name__ == '__main__':
     logger.log(logging.INFO, "Starting the bot")
+    logger.log(logging.INFO, "Press Ctrl+C to stop the bot")
     asyncio.run(main())
